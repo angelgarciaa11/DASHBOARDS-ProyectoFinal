@@ -56,6 +56,21 @@ class DBBooks:
                 l1.url_libro = l2.url_libro
         """)
         self.con.commit()
+        print("🧹 Duplicados eliminados correctamente.")
+
+    def cerrar(self):
+        self.cur.close()
+        self.con.close()
+
+if __name__ == "__main__":
+    df = pd.read_csv("books_completo.csv")
+    db = DBBooks()
+    db.insertar_categorias_y_ratings(df)
+    db.insertar_libros(df)
+    db.eliminar_duplicados_libros()
+    db.cerrar()
+
+
 
         
 
