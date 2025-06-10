@@ -124,6 +124,302 @@ def render_page_content(pathname):
 
             if top50_df.empty:
                 return html.Div([html.H4("No hay datos disponibles para el Top 50.", style={"color": "red", "textAlign": "center"})])
+                df_plot = top50_df.copy()
+            df_plot["titulo_corto"] = df_plot["titulo"].str.slice(0, 30) + "..."
+
+            fig_top50 = px.bar(
+                df_plot.sort_values(by="precio", ascending=True),
+                x="precio", y="titulo_corto",
+                orientation="h",
+                title="Top 50 Libros más Caros",
+                labels={"precio": "Precio", "titulo_corto": "Título"},
+                height=900,
+                template="plotly_white"
+            )
+
+            return html.Div([
+                html.H2("Top 50 Libros", style={"textAlign": "center", "marginBottom": "2rem", "color": "#2c2f33"}),
+                dbc.Row([
+                    dbc.Col([
+                        html.Div([
+                            html.Img(
+                                src="https://media.transformanceadvisors.com/unique/top-50-03.png",
+                                style={"width": "160px", "display": "block", "margin": "0 auto 15px", "borderRadius": "10px", "boxShadow": "0 2px 6px rgba(0,0,0,0.2)"}
+                            ),
+                            html.P("Representación Top 50", style={"textAlign": "center", "fontSize": "0.85rem", "color": "#666", "marginBottom": "20px"}),
+                            html.Div([
+                                html.H5("Listado de Libros", style={"marginBottom": "1rem", "color": "#2c2f33"}),
+                                dbc.Table.from_dataframe(
+                                    top50_df[["titulo", "precio", "url_libro"]],
+                                    striped=True, bordered=True, hover=True, responsive=True,
+                                    style={"fontSize": "0.9rem"}
+                                )
+                            ], style={
+                                "maxHeight": "720px",
+                                "overflowY": "auto",
+                                "backgroundColor": "#ffffff",
+                                "padding": "10px",
+                                "borderRadius": "8px",
+                                "boxShadow": "0 4px 8px rgba(0,0,0,0.05)"
+                            })
+                        ])
+                    ], md=6),
+
+                    dbc.Col([
+                        html.Div([dcc.Graph(figure=fig_top50)], style={
+                            "backgroundColor": "#ffffff",
+                            "padding": "10px",
+                            "borderRadius": "8px",
+                            "boxShadow": "0 4px 8px rgba(0,0,0,0.05)"
+                        })
+                    ], md=6),
+                ], style={"marginBottom": "2rem"})
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px", "boxShadow": "0 4px 10px rgba(0,0,0,0.05)"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar Top 50", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+
+    elif pathname == "/generos":
+        try:
+            query = """
+                SELECT c.nombre_categoria AS categoria, COUNT(*) AS total
+                FROM libros l
+                JOIN categorias c ON l.id_categoria = c.id_categoria
+                GROUP BY c.nombre_categoria
+                ORDER BY total DESC
+            """
+            df_categorias = pd.read_sql(query, engine)
+            top20 = df_categorias.head(20)
+
+            fig_bar = px.bar(
+                top20.sort_values(by="total", ascending=True),
+                x="total", y="categoria",
+                orientation="h",
+                title="Top 20 Categorías con Más Libros",
+                labels={"total": "Cantidad", "categoria": "Categoría"},
+                template="plotly_white",
+                height=500
+            )
+
+            fig_pie = px.pie(
+                top20,
+                values="total", names="categoria",
+                title="Distribución Porcentual (Top 20 Categorías)",
+                template="plotly_white",
+                hole=0.3
+            )
+
+            return html.Div([
+                html.H2("Libros por Categoría", style={"textAlign": "center", "marginBottom": "1.5rem", "color": "#2c2f33"}),
+                dcc.Graph(figure=fig_bar),
+                dcc.Graph(figure=fig_pie)
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar datos de categoría", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+
+    elif pathname == "/precios":
+        try:
+            query = """
+                SELECT l.titulo, l.precio, c.nombre_categoria AS categoria
+                FROM libros l
+                JOIN categorias c ON l.id_categoria = c.id_categoria
+                WHERE l.precio IS NOT NULL
+            """
+            df_precios = pd.read_sql(query, engine)
+
+            df_prom = df_precios.groupby("categoria").agg(precio_promedio=("precio", "mean")).reset_index()
+
+            fig_prom = px.bar(
+                df_prom.sort_values(by="precio_promedio", ascending=True),
+                x="precio_promedio", y="categoria",
+                orientation="h",
+                title="Precio Promedio por Categoría",
+                labels={"precio_promedio": "Precio Promedio", "categoria": "Categoría"},
+                height=500,
+                color="categoria",
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
+
+            fig_hist = px.histogram(
+                df_precios,
+                x="precio",
+                nbins=20,
+                title="Distribución de Precios de Libros",
+                labels={"precio": "Precio"},
+                height=400,
+                color_discrete_sequence=["#f4a261"]
+            )
+
+            return html.Div([
+                html.H2("Análisis de Precios",
+                        style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "2rem"}),
+                dcc.Graph(figure=fig_prom),
+                dcc.Graph(figure=fig_hist)
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar Análisis de Precios", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+
+
+    elif pathname == "/editoriales":
+        try:
+            query = """
+                    SELECT titulo, url_libro
+                    FROM libros
+                    WHERE titulo IS NOT NULL AND url_libro IS NOT NULL
+                    ORDER BY titulo ASC
+                    LIMIT 100
+                """
+            df_catalogo = pd.read_sql(query, engine)
+
+            #]
+            filas = []
+            for _, row in df_catalogo.iterrows():
+                filas.append(html.Tr([
+                    html.Td(html.A(row["titulo"], href=row["url_libro"], target="_blank"))
+                ]))
+
+            return html.Div([
+                html.H2("Catálogo de Libros",
+                        style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "2rem"}),
+
+                dbc.Row([
+                    dbc.Col(html.Img(
+                        src="https://books.toscrape.com/media/cache/91/a4/91a46253e165d144ef5938f2d456b88f.jpg",
+                        style={"width": "100%", "borderRadius": "10px", "marginBottom": "15px",
+                               "boxShadow": "0 2px 6px rgba(0,0,0,0.2)"}
+                    ), md=4),
+                    dbc.Col(html.Img(
+                        src="https://books.toscrape.com/media/cache/b1/0e/b10eabab1e1c811a6d47969904fd5755.jpg",
+                        style={"width": "100%", "borderRadius": "10px", "marginBottom": "15px",
+                               "boxShadow": "0 2px 6px rgba(0,0,0,0.2)"}
+                    ), md=4),
+                    dbc.Col(html.Img(
+                        src="https://books.toscrape.com/media/cache/6b/07/6b07b77236b7c80f42bd90bf325e69f6.jpg",
+                        style={"width": "100%", "borderRadius": "10px", "marginBottom": "15px",
+                               "boxShadow": "0 2px 6px rgba(0,0,0,0.2)"}
+                    ), md=4),
+                ], style={"marginBottom": "2rem"}),
+
+                html.Div([
+                    html.H5("Listado interactivo de libros", style={"marginBottom": "1rem", "color": "#2c2f33"}),
+                    dbc.Table([
+                        html.Thead(html.Tr([html.Th("Título")])),
+                        html.Tbody(filas)
+                    ], bordered=True, hover=True, responsive=True, striped=True, className="table-sm")
+                ], style={
+                    "backgroundColor": "#ffffff",
+                    "padding": "15px",
+                    "borderRadius": "10px",
+                    "boxShadow": "0 4px 10px rgba(0,0,0,0.05)"
+                })
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar el catálogo de libros", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+
+    elif pathname == "/stock":
+        try:
+            query = """
+                SELECT l.titulo, l.stock_disponible, c.nombre_categoria AS categoria
+                FROM libros l
+                JOIN categorias c ON l.id_categoria = c.id_categoria
+                WHERE l.stock_disponible IS NOT NULL
+            """
+            df_stock = pd.read_sql(query, engine)
+
+            #cateogira top 10
+            df_stock_agg = (
+                df_stock.groupby("categoria")
+                .agg(stock_total=("stock_disponible", "sum"))
+                .reset_index()
+                .sort_values(by="stock_total", ascending=False)
+                .head(10)
+            )
+
+            #libros con mayor stockkkkkk
+            top_libros = df_stock.sort_values(by="stock_disponible", ascending=False).head(10)
+
+            #graficaaa
+            fig_bar_stock = px.bar(
+                df_stock_agg,
+                x="categoria", y="stock_total",
+                title="Top 10 Categorías con Más Stock",
+                labels={"stock_total": "Stock Disponible", "categoria": "Categoría"},
+                template="simple_white",
+                color_discrete_sequence=["#4682B4"]
+            )
+
+            #grafica de cake
+            fig_pie_stock = px.pie(
+                df_stock_agg,
+                names="categoria", values="stock_total",
+                title="Distribución del Stock por Categoría (Top 10)",
+                hole=0.3,
+                template="simple_white",
+                color_discrete_sequence=px.colors.sequential.RdBu
+            )
+
+            return html.Div([
+                html.H2("Stock Disponible", style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "2rem"}),
+
+                dbc.Row([
+                    dbc.Col(dcc.Graph(figure=fig_bar_stock), md=6),
+                    dbc.Col(dcc.Graph(figure=fig_pie_stock), md=6),
+                ], style={"marginBottom": "2rem"}),
+
+                html.Div([
+                    html.H5("Top 10 Libros con Mayor Stock", style={"marginBottom": "1rem", "color": "#2c2f33"}),
+                    dbc.Table.from_dataframe(
+                        top_libros[["titulo", "categoria", "stock_disponible"]],
+                        striped=True, bordered=True, hover=True, responsive=True,
+                        style={"fontSize": "0.9rem"},
+                        class_name="table-sm"
+                    )
+                ], style={
+                    "backgroundColor": "#ffffff",
+                    "padding": "15px",
+                    "borderRadius": "10px",
+                    "boxShadow": "0 4px 10px rgba(0,0,0,0.05)"
+                })
+
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar análisis de stock", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+    elif pathname == "/ratings":
+        try:
+            query = """
+                SELECT l.titulo, r.nombre_rating, c.nombre_categoria AS categoria, l.precio
+                FROM libros l
+                JOIN rating r ON l.id_rating = r.id_rating
+                JOIN categorias c ON l.id_categoria = c.id_categoria
+                WHERE r.nombre_rating IS NOT NULL
+            """
+            df_rating = pd.read_sql(query, engine)
+
+
+            rating_map = {"One": 2, "Two": 4, "Three": 6, "Four": 8, "Five": 10}
+            df_rating["rating_num"] = df_rating["nombre_rating"].map(rating_map)
+
+
+
 
 
 
