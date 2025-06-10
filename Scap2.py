@@ -30,6 +30,35 @@ def scrap_books():
             price = driver.find_element(By.CLASS_NAME, "price_color").text.replace("£", "")
             price = float(price)
 
+                        #rating
+            rating_class = driver.find_element(By.CLASS_NAME, "star-rating").get_attribute("class")
+            rating = rating_class.replace("star-rating", "").strip()
+
+            #stock
+            availability = driver.find_element(By.XPATH, "//p[@class='instock availability']").text.strip()
+
+            #categoria/genero
+            category = driver.find_elements(By.CSS_SELECTOR, ".breadcrumb li a")[2].text
+
+            #guardar datos
+            all_books.append({
+                "Título": title,
+                "Precio": price,
+                "Rating": rating,
+                "Disponibilidad": availability,
+                "Categoría": category,
+                "URL": link
+            })
+
+    driver.quit()
+    df = pd.DataFrame(all_books)
+    df.to_csv("books_completo.csv", index=False)
+    print(" Exportado a books_completo.csv")
+
+if __name__ == '__main__':
+    scrap_books()
+
+
 
 
  
