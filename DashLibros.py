@@ -417,6 +417,227 @@ def render_page_content(pathname):
 
             rating_map = {"One": 2, "Two": 4, "Three": 6, "Four": 8, "Five": 10}
             df_rating["rating_num"] = df_rating["nombre_rating"].map(rating_map)
+            min_rating = df_rating["rating_num"].min()
+            max_rating = df_rating["rating_num"].max()
+
+            #promedio por categoría
+            avg_rating_cat = df_rating.groupby("categoria").agg(rating_promedio=("rating_num", "mean")).reset_index()
+            fig_avg_bar = px.bar(
+                avg_rating_cat.sort_values("rating_promedio", ascending=False),
+                x="categoria", y="rating_promedio",
+                title="Promedio de Rating por Categoría",
+                labels={"categoria": "Categoría", "rating_promedio": "Promedio Rating"},
+                template="simple_white",
+                color_discrete_sequence=["#20c997"]
+            )
+
+            # distribución por rating
+            pie_rating = df_rating["rating_num"].value_counts().reset_index()
+            pie_rating.columns = ["rating", "total"]
+
+            fig_pie = px.pie(
+                pie_rating,
+                names="rating", values="total",
+                title="Distribución de Ratings (Escala 1-10)",
+                hole=0.3,
+                template="simple_white",
+                color_discrete_sequence=px.colors.sequential.Teal
+            )
+
+            #Top 10 libros con mejor rating
+            top_libros = df_rating.sort_values(by="rating_num", ascending=False).head(10)
+
+            return html.Div([
+                html.H2("Análisis de Ratings", style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "2rem"}),
+
+                html.Div([
+                    html.P(f"📉 Rating más bajo: {min_rating}/10", style={"fontWeight": "bold", "color": "#e74c3c"}),
+                    html.P(f"📈 Rating más alto: {max_rating}/10", style={"fontWeight": "bold", "color": "#27ae60"}),
+                ], style={"textAlign": "center", "marginBottom": "2rem"}),
+
+                dbc.Row([
+                    dbc.Col(dcc.Graph(figure=fig_avg_bar), md=6),
+                    dbc.Col(dcc.Graph(figure=fig_pie), md=6),
+                ], style={"marginBottom": "2rem"}),
+
+                html.Div([
+                    html.H5("Top 10 Libros con Mayor Rating", style={"marginBottom": "1rem", "color": "#2c2f33"}),
+                    dbc.Table.from_dataframe(
+                        top_libros[["titulo", "categoria", "rating_num", "precio"]],
+                        striped=True, bordered=True, hover=True, responsive=True,
+                        style={"fontSize": "0.9rem"},
+                        class_name="table-sm"
+                    )
+                ], style={
+                    "backgroundColor": "#ffffff",
+                    "padding": "15px",
+                    "borderRadius": "10px",
+                    "boxShadow": "0 4px 10px rgba(0,0,0,0.05)"
+                })
+
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar análisis de ratings", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+
+
+
+    elif pathname == "/comparativa":
+        try:
+            query = """
+                SELECT l.titulo, l.precio, l.stock_disponible, c.nombre_categoria AS categoria, r.nombre_rating
+                FROM libros l
+                JOIN categorias c ON l.id_categoria = c.id_categoria
+                JOIN rating r ON l.id_rating = r.id_rating
+                WHERE l.precio IS NOT NULL AND l.stock_disponible IS NOT NULL
+            """
+            df = pd.read_sql(query, engine)
+
+
+            rating_map = {"One": 2, "Two": 4, "Three": 6, "Four": 8, "Five": 10}
+            df["rating_num"] = df["nombre_rating"].map(rating_map)
+
+            #Stacked Bar por Categoría y Rating
+            df_bar = df.groupby(["categoria", "nombre_rating"]).size().reset_index(name="total")
+            fig1 = px.bar(
+                df_bar, x="categoria", y="total", color="nombre_rating",
+                title="Cantidad de Libros por Categoría y Rating",
+                labels={"total": "Cantidad de Libros", "categoria": "Categoría", "nombre_rating": "Rating"},
+                template="simple_white", barmode="stack"
+            )
+
+            #Dispersión Precio vs Stock por Categoría
+            fig2 = px.scatter(
+                df, x="precio", y="stock_disponible", color="categoria", hover_name="titulo",
+                title="Precio vs Stock Disponible por Categoría",
+                labels={"precio": "Precio", "stock_disponible": "Stock"},
+                template="simple_white"
+            )
+
+            #Boxplot de Precios por Categoría
+            fig3 = px.box(
+                df, x="categoria", y="precio",
+                title="Distribución de Precios por Categoría",
+                labels={"precio": "Precio", "categoria": "Categoría"},
+                template="simple_white"
+            )
+
+            #Comparativa Precio Promedio vs Precio Máximo por Categoría
+            resumen_cat = df.groupby("categoria").agg(
+                precio_promedio=("precio", "mean"),
+                precio_maximo=("precio", "max")
+            ).reset_index()
+
+            fig4 = px.bar(
+                resumen_cat.melt(id_vars="categoria", value_vars=["precio_promedio", "precio_maximo"]),
+                x="categoria", y="value", color="variable",
+                title="Comparativa de Precio Promedio vs Máximo por Categoría",
+                labels={"value": "Precio", "variable": "Tipo"},
+                barmode="group", template="simple_white"
+            )
+
+            #Precio Promedio por Rating Numérico
+            resumen_rating = df.groupby("rating_num").agg(precio_promedio=("precio", "mean")).reset_index()
+            fig5 = px.line(
+                resumen_rating, x="rating_num", y="precio_promedio",
+                title="Precio Promedio Rating (1-10)",
+                labels={"rating_num": "Rating", "precio_promedio": "Precio Promedio"},
+                template="simple_white", markers=True
+            )
+
+            return html.Div([
+                html.H2("Gráficas Comparativas", style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "2rem"}),
+
+                dcc.Graph(figure=fig1),
+                dcc.Graph(figure=fig2),
+                dcc.Graph(figure=fig3),
+                dcc.Graph(figure=fig4),
+                dcc.Graph(figure=fig5)
+
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar gráficas comparativas", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+
+    elif pathname == "/resumen":
+        try:
+            query = """
+                SELECT titulo, precio, stock_disponible, url_libro, c.nombre_categoria AS categoria, r.nombre_rating
+                FROM libros l
+                JOIN categorias c ON l.id_categoria = c.id_categoria
+                JOIN rating r ON l.id_rating = r.id_rating
+                WHERE precio IS NOT NULL
+            """
+            df = pd.read_sql(query, engine)
+
+            #Convertir rating textual a numérico
+            rating_map = {"One": 2, "Two": 4, "Three": 6, "Four": 8, "Five": 10}
+            df["rating_num"] = df["nombre_rating"].map(rating_map)
+
+            #KPIsdsssss
+            total_libros = len(df)
+            categorias_total = df["categoria"].nunique()
+            precio_prom = round(df["precio"].mean(), 2)
+            rating_prom = round(df["rating_num"].mean(), 1)
+            stock_total = df["stock_disponible"].sum()
+
+            #Datos destacados
+            libro_mas_caro = df.loc[df["precio"].idxmax()]
+            cat_top = df["categoria"].value_counts().idxmax()
+            rating_top = df["rating_num"].max()
+
+            top5_caros = df.sort_values(by="precio", ascending=False).head(5)
+
+            return html.Div([
+                html.Div([
+                    html.H2("Resumen General", style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "1rem"}),
+                    html.Img(
+                        src="https://images.vexels.com/media/users/3/271649/isolated/preview/3a1938ea55f27c31d53b585fcebdcd5e-icono-de-dibujos-animados-de-libro-abierto.png",
+                        style={"height": "100px", "display": "block", "margin": "0 auto", "marginBottom": "30px"}
+                    )
+                ]),
+
+                html.Div([
+                    html.P("Total de libros registrados: " + str(total_libros)),
+                    html.P("Categorías disponibles: " + str(categorias_total)),
+                    html.P("Precio promedio general: $" + str(precio_prom)),
+                    html.P("Stock total disponible: " + str(stock_total)),
+                    html.P("Rating promedio: " + str(rating_prom) + " / 10"),
+                ], style={
+                    "backgroundColor": "#ffffff",
+                    "padding": "15px",
+                    "borderRadius": "8px",
+                    "marginBottom": "20px",
+                    "boxShadow": "0 2px 6px rgba(0,0,0,0.1)"
+                }),
+
+                html.Div([
+                    html.Div([
+                        html.H5("Datos curiosos",
+                                style={"marginBottom": "1rem", "color": "#2c2f33", "textAlign": "center"}),
+                        html.Ul([
+                            html.Li(
+                                f"El libro más caro es '{libro_mas_caro['titulo']}' con ${libro_mas_caro['precio']}"),
+                            html.Li(f"La categoría con más libros es: {cat_top}"),
+                            html.Li(f"El rating máximo registrado es: {rating_top}/5.8")
+                        ], style={"listStyleType": "disc", "paddingLeft": "20px"})
+                    ], style={
+                        "backgroundColor": "#fcf3cf",
+                        "padding": "15px",
+                        "borderRadius": "8px",
+                        "boxShadow": "0 2px 4px rgba(0,0,0,0.08)",
+                        "maxWidth": "600px",
+                        "margin": "0 auto"
+                    })
+                ], style={"marginBottom": "25px"}),
+
+
 
 
 
