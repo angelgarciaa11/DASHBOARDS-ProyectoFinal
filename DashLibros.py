@@ -637,6 +637,97 @@ def render_page_content(pathname):
                     })
                 ], style={"marginBottom": "25px"}),
 
+                html.Div([
+                    html.H5("Top 5 Libros Más Caros", style={"marginBottom": "1rem", "color": "#2c2f33"}),
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Card([
+                                dbc.CardBody([
+                                    html.H6(row["titulo"], style={"fontWeight": "bold"}),
+                                    html.P(f"${row['precio']} • {row['categoria']} • Rating: {row['rating_num']}/10"),
+                                    dbc.Button("Ver libro", href=row["url_libro"], target="_blank", size="sm", color="primary")
+                                ])
+                            ], style={"marginBottom": "15px", "height": "100%"})
+                        ], md=4) for _, row in top5_caros.iterrows()
+                    ])
+                ]),
+
+                html.Br(),
+
+                html.Div([
+                    html.H5("Accesos rápidos", style={"marginBottom": "1rem", "color": "#2c2f33"}),
+                    dbc.ButtonGroup([
+                        dbc.Button("Comparativa", href="/comparativa", color="secondary"),
+                        dbc.Button("Análisis Precios", href="/precios", color="secondary"),
+                        dbc.Button("Ver Editoriales", href="/editoriales", color="secondary")
+                    ])
+                ], style={"textAlign": "center", "marginBottom": "30px"})
+
+            ], style={"backgroundColor": "#fdf6e3", "padding": "30px", "borderRadius": "10px"})
+
+        except Exception as e:
+            return html.Div([
+                html.H4("Error al cargar resumen general", style={"color": "red"}),
+                html.Pre(str(e))
+            ])
+
+    elif pathname == "/sitioweb":
+        return html.Div([
+            html.H2("Sitios Recomendados", style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "2rem"}),
+
+            dbc.Row([
+                dbc.Col([
+                    html.A([
+                        html.Img(
+                            src="https://books.toscrape.com/media/cache/fe/72/fe72f0532301ec28892ae79a629a293c.jpg",
+                            style={"width": "100%", "borderRadius": "10px", "boxShadow": "0 2px 6px rgba(0,0,0,0.2)"}
+                        ),
+                        html.P("Books to Scrape", style={"textAlign": "center", "marginTop": "10px", "fontWeight": "bold"})
+                    ], href="https://books.toscrape.com", target="_blank")
+                ], md=4),
+
+                dbc.Col([
+                    html.A([
+                        html.Img(
+                            src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?fit=crop&w=600&q=80",
+                            style={"width": "100%", "borderRadius": "10px", "boxShadow": "0 2px 6px rgba(0,0,0,0.2)"}
+                        ),
+                        html.P("Books to Scrape", style={"textAlign": "center", "marginTop": "10px", "fontWeight": "bold"})
+                    ], href="https://books.toscrape.com", target="_blank")
+                ], md=4),
+
+                dbc.Col([
+                    html.A([
+                        html.Img(
+                            src="https://images.vexels.com/media/users/3/271649/isolated/preview/3a1938ea55f27c31d53b585fcebdcd5e-icono-de-dibujos-animados-de-libro-abierto.png",
+                            style={"width": "100%", "borderRadius": "10px", "boxShadow": "0 2px 6px rgba(0,0,0,0.2)"}
+                        ),
+                        html.P("Books to Scrape", style={"textAlign": "center", "marginTop": "10px", "fontWeight": "bold"})
+                    ], href="https://books.toscrape.com/", target="_blank")
+                ], md=4),
+            ], style={"marginBottom": "3rem"}),
+
+            html.Div([
+                html.H4("Gracias por visitar este dashboard", style={"textAlign": "center", "color": "#2c2f33", "marginBottom": "1rem"}),
+                html.P("Esperamos que los datos hayan sido útiles y que regreses pronto para seguir explorando el mundo de los libros.",
+                       style={"textAlign": "center", "maxWidth": "700px", "margin": "0 auto", "fontSize": "1.1rem"})
+            ]),
+
+        ], style={"backgroundColor": "#fdf6e3", "padding": "40px", "borderRadius": "10px"})
+
+
+    return html.Div([
+        html.H1("404 - Página no encontrada", className="text-danger"),
+        html.P(f"La ruta {pathname} no existe.")
+    ])
+
+layout = app.layout  # Para que se pueda importar
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+                
+
 
 
 
